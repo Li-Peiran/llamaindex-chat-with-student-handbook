@@ -35,8 +35,8 @@ class Copilot:
         self.llm_client = OpenAI(api_key = key)
         
         self.system_prompt = """
-            You are an expert on Columbia University and your job is to answer questions 
-            about the university.
+            You are an expert on ETFs and your job is to answer questions 
+            about the ETFs.
         """
 
     def ask(self, question, messages):
@@ -51,8 +51,8 @@ class Copilot:
 
             The retrived information is: {retrieved_info}
 
-            Please answer the question based on the retrieved information. If the question is not related to Columbia University, 
-            please tell the user and ask for a question related to Columbia University.
+            Please answer the question based on the retrieved information. If the question is not related to ETFs, 
+            please tell the user and ask for a question related to ETFs.
 
             Please highlight the information with bold text and bullet points.
         """
