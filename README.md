@@ -1,6 +1,6 @@
-# 🦙📚 Columbia Copilot
+# 🦙📚 ETF expert 
 
-Columbia Copilot is an AI-powered chatbot designed to answer questions about Columbia University. It leverages the capabilities of OpenAI's GPT-4o and LlamaIndex to provide accurate and contextually relevant responses based on the data it has been trained on.
+The ETF expert is an AI-powered chatbot designed to answer questions about ETFs. It leverages the capabilities of OpenAI's GPT-4o and LlamaIndex to provide accurate and contextually relevant responses based on the data it has been trained on.
 
 ## Overview of the App
 
