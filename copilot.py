@@ -1378,10 +1378,399 @@
 #         messages.append({"role": "assistant", "content": answer})
 
 
-import requests
-import os
-import re
+# import requests
+# import os
+# import re
 
+# from openai import OpenAI
+# from llama_index.core import VectorStoreIndex, SimpleDirectoryReader
+# from llama_index.embeddings.huggingface import HuggingFaceEmbedding
+# from tenacity import retry, wait_random_exponential, stop_after_attempt
+
+# # Retry mechanism for OpenAI API requests
+# @retry(wait=wait_random_exponential(multiplier=1, max=40), stop=stop_after_attempt(5))
+# def chat_completion_request(client, messages, model="gpt-4o", **kwargs):
+#     try:
+#         response = client.chat.completions.create(
+#             model=model,
+#             messages=messages,
+#             **kwargs
+#         )
+#         return response
+#     except Exception as e:
+#         print("Unable to generate ChatCompletion response")
+#         print(f"Exception: {e}")
+#         return e
+
+# # Define the GoogleSearchBot class
+# class GoogleSearchBot:
+#     def __init__(self, google_api_key, google_cse_id):
+#         self.google_api_key = google_api_key
+#         self.google_cse_id = google_cse_id
+
+#     def search(self, query):
+#         """Use Google Search API to search the web based on the user query."""
+#         search_url = f"https://www.googleapis.com/customsearch/v1"
+#         params = {
+#             "key": self.google_api_key,
+#             "cx": self.google_cse_id,
+#             "q": query
+#         }
+#         try:
+#             response = requests.get(search_url, params=params)
+#             response.raise_for_status()  # Raise an error for 4XX/5XX responses
+#             search_results = response.json()
+#             if "items" in search_results:
+#                 results = search_results["items"]
+#                 top_results = "\n".join([f"{i+1}. {item['title']}: {item['link']}" for i, item in enumerate(results[:5])])
+#                 sources = [item['link'] for item in results[:5]]  # Track sources
+#                 return top_results, sources
+#             else:
+#                 return "No relevant results found on Google.", []
+#         except requests.exceptions.RequestException as e:
+#             return f"Error during Google Search: {e}", []
+
+# # Define the Copilot class that integrates ETF document retrieval and Google Search
+# class Copilot:
+#     def __init__(self, openai_key, google_search_bot):
+#         reader = SimpleDirectoryReader(input_dir="./data", recursive=True)
+#         docs = reader.load_data()
+#         embedding_model = HuggingFaceEmbedding(model_name="BAAI/bge-small-en")
+#         self.index = VectorStoreIndex.from_documents(docs, embed_model=embedding_model, show_progress=True)
+#         self.retriever = self.index.as_retriever(similarity_top_k=3)
+
+#         self.llm_client = OpenAI(api_key=openai_key)
+#         self.google_search_bot = google_search_bot
+#         self.system_prompt = "You are an expert on ETFs. Your job is to answer questions about ETFs."
+
+#     def is_question_related_to_etf(self, question):
+#         """Check if the question is related to ETFs."""
+#         keywords = ['etf', 'exchange traded fund', 'funds', 'investment', 'stocks', 'bonds']
+#         return any(keyword in question.lower() for keyword in keywords)
+
+#     def anti_jailbreak_check(self, question):
+#         """Anti-jailbreaking mechanism with comprehensive keywords and patterns."""
+#         banned_keywords = [
+#             'illegal', 'hack', 'bypass', 'jailbreak', 'exploit', 'malware', 'virus', 'phishing', 
+#             'keylogger', 'ddos', 'sql injection', 'cross-site scripting', 'rce', 'buffer overflow', 
+#             'privilege escalation', 'root access', 'backdoor', 'trojan', 'worm', 'dark web', 'ransomware'
+#         ]
+        
+#         # Complex patterns that could indicate malicious attempts
+#         banned_patterns = [
+#             r'(how to|ways to|steps to|methods to).* (hack|exploit|bypass|jailbreak)',  
+#             r'(\bshutdown\b|\bdisable\b|\bmodify\b|\boverride\b) security',
+#             r'(destroy|corrupt|delete) (files|data|logs)'
+#         ]
+        
+#         # Check for banned keywords
+#         if any(keyword in question.lower() for keyword in banned_keywords):
+#             return True  # Jailbreaking attempt detected
+
+#         # Check for banned patterns using regex
+#         if any(re.search(pattern, question.lower()) for pattern in banned_patterns):
+#             return True  # Jailbreaking pattern detected
+
+#         return False
+
+#     def ask(self, question, messages):
+#         sources = []  # Track sources
+#         retrieved_info = ""  # Initialize retrieved information
+
+#         # Perform basic anti-jailbreaking check
+#         if self.anti_jailbreak_check(question):
+#             return "This query is not allowed due to policy restrictions.", None
+
+#         # Check if the question is related to ETFs
+#         if self.is_question_related_to_etf(question):
+#             print("Question is related to ETFs. Proceeding with ETF document retrieval...")
+            
+#             # Retrieve relevant content from ETF documents
+#             nodes = self.retriever.retrieve(question)
+            
+#             # Combine retrieved content
+#             retrieved_info = "\n\n".join([f"{i+1}. {node.text}" for i, node in enumerate(nodes)])
+
+#             # Limit the length of the ETF content
+#             MAX_LENGTH = 1000  
+#             if len(retrieved_info) > MAX_LENGTH:
+#                 retrieved_info = retrieved_info[:MAX_LENGTH] + "...\n[Content truncated]"
+
+#             # Track the sources from the ETF documents
+#             sources.extend([node.text for node in nodes])
+
+#             # Check if the retrieved content is relevant
+#             irrelevant_response_patterns = [
+#                 r"does.*not.*provide", 
+#                 r"does.*not.*mention", 
+#                 r"does.*not.*include", 
+#                 r"no.*insights", 
+#                 r"unrelated"
+#             ]
+#             is_relevant = not any(re.search(pattern, retrieved_info.lower()) for pattern in irrelevant_response_patterns)
+
+#             if is_relevant:
+#                 print("Retrieval from the ETF books completed. Do you want to conduct further search through Google? (yes/no)")
+#                 user_input = input()  # Get the user's response
+
+#                 if user_input.lower() == "yes":
+#                     # Perform Google search if requested
+#                     google_results, google_sources = self.google_search_bot.search(query=question)
+                    
+#                     # Print both ETF retrieved content and Google search results
+#                     print(f"(1) Retrieved from ETF Documents:\n{retrieved_info}\n")
+#                     print(f"(2) Google Search Results:\n{google_results}")
+
+#                     sources.extend(google_sources)  # Track Google sources
+
+#                 else:
+#                     # If the user does not want Google search, print only ETF results
+#                     print(f"(1) Retrieved from ETF Documents:\n{retrieved_info}\n")
+
+#             else:
+#                 # If the content is not relevant, perform Google search immediately
+#                 print("ETF content is not relevant. Launching Google Search...")
+#                 google_results, google_sources = self.google_search_bot.search(query=question)
+#                 retrieved_info = f"**Google Search Results:**\n{google_results}"
+#                 print("\nGoogle Search Results:")
+#                 print(google_results)
+#                 sources.extend(google_sources)
+
+#         else:
+#             print("Question is not related to ETFs. Launching Google Search immediately.")
+#             google_results, google_sources = self.google_search_bot.search(query=question)
+#             retrieved_info = f"**Google Search Results:**\n{google_results}"
+#             print("\nGoogle Search Results:")
+#             print(google_results)
+#             sources.extend(google_sources)
+
+#         # Prepare the final message to be sent to OpenAI
+#         sources_text = "\n".join([f"- {source}" for source in sources])
+#         processed_query_prompt = f"""
+#             The user is asking a question: {question}
+
+#             The retrieved information is: {retrieved_info}
+
+#             Sources:
+#             {sources_text}
+
+#             Please answer the question based on the retrieved information.
+#         """
+
+#         # Send the query to OpenAI for processing
+#         messages = [{"role": "system", "content": self.system_prompt}] + messages + [{"role": "user", "content": processed_query_prompt}]
+#         response = chat_completion_request(self.llm_client, messages=messages, stream=True)
+
+#         return retrieved_info, response
+
+# # Adding the __main__ block for standalone testing
+# if __name__ == "__main__":
+#     # Test the Copilot class with a manual prompt and see if the retrieval works
+#     openai_api_key = input("Please enter your OpenAI API Key: ")
+#     google_api_key = input("Please enter your Google API Key: ")
+#     google_cse_id = input("Please enter your Google CSE ID: ")
+
+#     # Initialize Google Search Bot and Copilot
+#     google_search_bot = GoogleSearchBot(google_api_key, google_cse_id)
+#     copilot = Copilot(openai_key=openai_api_key, google_search_bot=google_search_bot)
+
+#     # Simulate a conversation
+#     messages = []
+#     while True:
+#         question = input("Please ask a question: ")
+#         if question.lower() == "exit":
+#             print("Exiting the Copilot...")
+#             break
+
+#         # Get response from Copilot
+#         retrieved_info, answer = copilot.ask(question, messages)
+
+#         # Print the response
+#         if isinstance(answer, str):
+#             print(answer)
+#         else:
+#             answer_str = ""
+#             for chunk in answer:
+#                 content = chunk.choices[0].delta.content
+#                 if content:
+#                     answer_str += content
+#                     print(content, end="", flush=True)
+#             print()
+#             answer = answer_str
+
+#         # Append the user's question and assistant's answer to the message history
+#         messages.append({"role": "user", "content": question})
+#         messages.append({"role": "assistant", "content": answer})
+
+
+
+# import requests
+# import os
+# import re
+# from openai import OpenAI
+# from llama_index.core import VectorStoreIndex, SimpleDirectoryReader
+# from llama_index.embeddings.huggingface import HuggingFaceEmbedding
+# from tenacity import retry, wait_random_exponential, stop_after_attempt
+
+# # Retry mechanism for OpenAI API requests
+# @retry(wait=wait_random_exponential(multiplier=1, max=40), stop=stop_after_attempt(5))
+# def chat_completion_request(client, messages, model="gpt-4o", **kwargs):
+#     try:
+#         response = client.chat.completions.create(
+#             model=model,
+#             messages=messages,
+#             **kwargs
+#         )
+#         return response
+#     except Exception as e:
+#         print("Unable to generate ChatCompletion response")
+#         print(f"Exception: {e}")
+#         return e
+
+# class Copilot:
+#     def __init__(self, openai_key, google_api_key, google_cse_id):
+#         reader = SimpleDirectoryReader(input_dir="./data", recursive=True)
+#         docs = reader.load_data()
+#         embedding_model = HuggingFaceEmbedding(model_name="BAAI/bge-small-en")
+#         self.index = VectorStoreIndex.from_documents(docs, embed_model=embedding_model, show_progress=True)
+#         self.retriever = self.index.as_retriever(similarity_top_k=3)
+
+#         self.llm_client = OpenAI(api_key=openai_key)
+#         self.google_api_key = google_api_key
+#         self.google_cse_id = google_cse_id
+#         self.system_prompt = "You are an expert on ETFs. Your job is to answer questions about ETFs."
+
+#     def google_search(self, query):
+#         """Use Google Search API to search the web based on the user query."""
+#         search_url = f"https://www.googleapis.com/customsearch/v1"
+#         params = {
+#             "key": self.google_api_key,
+#             "cx": self.google_cse_id,
+#             "q": query
+#         }
+#         try:
+#             response = requests.get(search_url, params=params)
+#             response.raise_for_status()
+#             search_results = response.json()
+#             if "items" in search_results:
+#                 results = search_results["items"]
+#                 top_results = "\n".join([f"{i+1}. {item['title']}: {item['link']}" for i, item in enumerate(results[:5])])
+#                 sources = [item['link'] for item in results[:5]]
+#                 return top_results, sources
+#             else:
+#                 return "No relevant results found on Google.", []
+#         except requests.exceptions.RequestException as e:
+#             return f"Error during Google Search: {e}", []
+
+#     def is_question_related_to_etf(self, question):
+#         """Check if the question is related to ETFs."""
+#         keywords = ['etf', 'exchange traded fund', 'funds', 'investment', 'stocks', 'bonds']
+#         return any(keyword in question.lower() for keyword in keywords)
+
+#     def anti_jailbreak_check(self, question):
+#         """Anti-jailbreaking mechanism with comprehensive keywords and patterns."""
+#         banned_keywords = [
+#             'illegal', 'hack', 'bypass', 'jailbreak', 'exploit', 'malware', 'virus', 'phishing',
+#             'keylogger', 'ddos', 'sql injection', 'cross-site scripting', 'rce', 'buffer overflow',
+#             'privilege escalation', 'root access', 'backdoor', 'trojan', 'worm', 'dark web', 'ransomware'
+#         ]
+#         banned_patterns = [
+#             r'(how to|ways to|steps to|methods to).* (hack|exploit|bypass|jailbreak)',
+#             r'(\bshutdown\b|\bdisable\b|\bmodify\b|\boverride\b) security',
+#             r'(destroy|corrupt|delete) (files|data|logs)'
+#         ]
+#         if any(keyword in question.lower() for keyword in banned_keywords):
+#             return True
+#         if any(re.search(pattern, question.lower()) for pattern in banned_patterns):
+#             return True
+#         return False
+
+#     def ask(self, question, messages):
+#         sources = []
+#         retrieved_info = ""
+
+#         # Anti-jailbreak check
+#         if self.anti_jailbreak_check(question):
+#             return "This query is not allowed due to policy restrictions.", None
+
+#         # Perform Google search
+#         google_results, google_sources = self.google_search(query=question)
+#         sources.extend(google_sources)
+
+#         if self.is_question_related_to_etf(question):
+#             # Retrieve ETF content
+#             nodes = self.retriever.retrieve(question)
+#             etf_info = "\n\n".join([f"{i+1}. {node.text}" for i, node in enumerate(nodes)])
+#             combined_info = f"(1) ETF Documents:\n{etf_info}\n\n(2) Google Search Results:\n{google_results}"
+
+#             # Add ETF book references to sources
+#             sources.extend([
+#                 "Ferri, R. A. (2011). The ETF book: All you need to know about exchange-traded funds. Wiley. "
+#                 "https://doi.org/10.1002/9781118045091",
+#                 "Fuller, S. L., et al. (2022). *ETF handbook (3rd ed.)*. K&L Gates. "
+#                 "Retrieved from https://files.klgates.com/files/206323_etf_handbook_third_edition.pdf"
+#             ])
+#             sources_text = "\n".join([f"- {source}" for source in sources])
+
+#             # Prepare the stream response for ETF-related questions
+#             response_stream = [
+#                 {"role": "assistant", "content": "Question is related to ETFs. Answers are generated upon the contents retrieved from ETF books and Google Search.\n\n"}
+#             ]
+#         else:
+#             # Use only Google search results for non-ETF-related questions
+#             combined_info = f"Google Search Results:\n{google_results}"
+#             sources_text = "\n".join([f"- {source}" for source in sources])
+
+#             # Prepare the stream response for non-ETF-related questions
+#             response_stream = [
+#                 {"role": "assistant", "content": "Question is not related to ETFs. Answers are generated upon the contents from Google Search.\n\n"}
+#             ]
+
+#         # Prepare the messages for GPT
+#         messages = [{"role": "system", "content": self.system_prompt}] + messages + [{"role": "user", "content": combined_info}]
+#         response = chat_completion_request(self.llm_client, messages=messages, stream=True)
+
+#         # Stream the GPT response
+#         for chunk in response:
+#             content = chunk.choices[0].delta.content
+#             if content:
+#                 response_stream.append({"role": "assistant", "content": content})
+
+#         # Add sources at the end
+#         response_stream.append({"role": "assistant", "content": f"\n\nSources:\n{sources_text}"})
+
+#         # Combine and print the final response
+#         final_response = ""
+#         for part in response_stream:
+#             content = part["content"]
+#             final_response += content
+#             print(content, end="", flush=True)
+
+#         return combined_info, final_response
+
+# # Main block for testing
+# if __name__ == "__main__":
+#     openai_api_key = input("Please enter your OpenAI API Key: ")
+#     google_api_key = input("Please enter your Google API Key: ")
+#     google_cse_id = input("Please enter your Google CSE ID: ")
+
+#     copilot = Copilot(openai_key=openai_api_key, google_api_key=google_api_key, google_cse_id=google_cse_id)
+#     messages = []
+
+#     while True:
+#         question = input("Please ask a question: ")
+#         if question.lower() == "exit":
+#             print("Exiting the Copilot...")
+#             break
+
+#         retrieved_info, answer = copilot.ask(question, messages)
+#         print(answer)
+
+#         messages.append({"role": "user", "content": question})
+#         messages.append({"role": "assistant", "content": answer})
+
+import requests
+import re
 from openai import OpenAI
 from llama_index.core import VectorStoreIndex, SimpleDirectoryReader
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
@@ -1402,13 +1791,20 @@ def chat_completion_request(client, messages, model="gpt-4o", **kwargs):
         print(f"Exception: {e}")
         return e
 
-# Define the GoogleSearchBot class
-class GoogleSearchBot:
-    def __init__(self, google_api_key, google_cse_id):
+class Copilot:
+    def __init__(self, openai_key, google_api_key, google_cse_id):
+        reader = SimpleDirectoryReader(input_dir="./data", recursive=True)
+        docs = reader.load_data()
+        embedding_model = HuggingFaceEmbedding(model_name="BAAI/bge-small-en")
+        self.index = VectorStoreIndex.from_documents(docs, embed_model=embedding_model, show_progress=True)
+        self.retriever = self.index.as_retriever(similarity_top_k=3)
+
+        self.llm_client = OpenAI(api_key=openai_key)
         self.google_api_key = google_api_key
         self.google_cse_id = google_cse_id
+        self.system_prompt = "You are an expert on ETFs. Your job is to answer questions about ETFs."
 
-    def search(self, query):
+    def google_search(self, query):
         """Use Google Search API to search the web based on the user query."""
         search_url = f"https://www.googleapis.com/customsearch/v1"
         params = {
@@ -1418,30 +1814,17 @@ class GoogleSearchBot:
         }
         try:
             response = requests.get(search_url, params=params)
-            response.raise_for_status()  # Raise an error for 4XX/5XX responses
+            response.raise_for_status()
             search_results = response.json()
             if "items" in search_results:
                 results = search_results["items"]
                 top_results = "\n".join([f"{i+1}. {item['title']}: {item['link']}" for i, item in enumerate(results[:5])])
-                sources = [item['link'] for item in results[:5]]  # Track sources
+                sources = [item['link'] for item in results[:5]]
                 return top_results, sources
             else:
                 return "No relevant results found on Google.", []
         except requests.exceptions.RequestException as e:
             return f"Error during Google Search: {e}", []
-
-# Define the Copilot class that integrates ETF document retrieval and Google Search
-class Copilot:
-    def __init__(self, openai_key, google_search_bot):
-        reader = SimpleDirectoryReader(input_dir="./data", recursive=True)
-        docs = reader.load_data()
-        embedding_model = HuggingFaceEmbedding(model_name="BAAI/bge-small-en")
-        self.index = VectorStoreIndex.from_documents(docs, embed_model=embedding_model, show_progress=True)
-        self.retriever = self.index.as_retriever(similarity_top_k=3)
-
-        self.llm_client = OpenAI(api_key=openai_key)
-        self.google_search_bot = google_search_bot
-        self.system_prompt = "You are an expert on ETFs. Your job is to answer questions about ETFs."
 
     def is_question_related_to_etf(self, question):
         """Check if the question is related to ETFs."""
@@ -1451,95 +1834,90 @@ class Copilot:
     def anti_jailbreak_check(self, question):
         """Anti-jailbreaking mechanism with comprehensive keywords and patterns."""
         banned_keywords = [
-            'illegal', 'hack', 'bypass', 'jailbreak', 'exploit', 'malware', 'virus', 'phishing', 
-            'keylogger', 'ddos', 'sql injection', 'cross-site scripting', 'rce', 'buffer overflow', 
+            'illegal', 'hack', 'bypass', 'jailbreak', 'exploit', 'malware', 'virus', 'phishing',
+            'keylogger', 'ddos', 'sql injection', 'cross-site scripting', 'rce', 'buffer overflow',
             'privilege escalation', 'root access', 'backdoor', 'trojan', 'worm', 'dark web', 'ransomware'
         ]
-        
-        # Complex patterns that could indicate malicious attempts
         banned_patterns = [
-            r'(how to|ways to|steps to|methods to).* (hack|exploit|bypass|jailbreak)',  
+            r'(how to|ways to|steps to|methods to).* (hack|exploit|bypass|jailbreak)',
             r'(\bshutdown\b|\bdisable\b|\bmodify\b|\boverride\b) security',
             r'(destroy|corrupt|delete) (files|data|logs)'
         ]
-        
-        # Check for banned keywords
         if any(keyword in question.lower() for keyword in banned_keywords):
-            return True  # Jailbreaking attempt detected
-
-        # Check for banned patterns using regex
+            return True
         if any(re.search(pattern, question.lower()) for pattern in banned_patterns):
-            return True  # Jailbreaking pattern detected
-
+            return True
         return False
 
     def ask(self, question, messages):
-        sources = []  # Track sources
-        retrieved_info = ""  # Initialize retrieved information
+        sources = []
+        retrieved_info = ""
 
-        # Perform basic anti-jailbreaking check
+        # Anti-jailbreak check
         if self.anti_jailbreak_check(question):
             return "This query is not allowed due to policy restrictions.", None
 
-        # Check if the question is related to ETFs
+        # Perform Google search
+        google_results, google_sources = self.google_search(query=question)
+        sources.extend(google_sources)
+
         if self.is_question_related_to_etf(question):
-            print("Question is related to ETFs. Proceeding with ETF document retrieval...")
-            
-            # Retrieve relevant content from ETF documents
+            # Retrieve ETF content
             nodes = self.retriever.retrieve(question)
-            
-            # Combine retrieved content
-            retrieved_info = "\n\n".join([f"{i+1}. {node.text}" for i, node in enumerate(nodes)])
+            etf_info = "\n\n".join([f"{i+1}. {node.text}" for i, node in enumerate(nodes)])
+            combined_info = f"(1) ETF Documents:\n{etf_info}\n\n(2) Google Search Results:\n{google_results}"
 
-            # Limit the length of the ETF content
-            MAX_LENGTH = 1000  
-            if len(retrieved_info) > MAX_LENGTH:
-                retrieved_info = retrieved_info[:MAX_LENGTH] + "...\n[Content truncated]"
-
-            # Track the sources from the ETF documents
-            sources.extend([node.text for node in nodes])
-
-            # Check if the retrieved content is relevant
-            irrelevant_response_patterns = [
-                r"does.*not.*provide", 
-                r"does.*not.*mention", 
-                r"does.*not.*include", 
-                r"no.*insights", 
-                r"unrelated"
-            ]
-            is_relevant = not any(re.search(pattern, retrieved_info.lower()) for pattern in irrelevant_response_patterns)
-
-            if is_relevant:
-                google_results, google_sources = self.google_search_bot.search(query=question)
-                sources.extend(google_sources)
-                print(f"(1) Retrieved from ETF Documents:\n{retrieved_info}\n")
-                print(f"(2) Google Search Results:\n{google_results}")
-            else:
-                google_results, google_sources = self.google_search_bot.search(query=question)
-                retrieved_info = f"**Google Search Results:**\n{google_results}"
-                sources.extend(google_sources)
-
+            # Add ETF book references to sources
+            sources.extend([
+                "Ferri, R. A. (2011). The ETF book: All you need to know about exchange-traded funds. Wiley. "
+                "https://doi.org/10.1002/9781118045091",
+                "Fuller, S. L., et al. (2022). *ETF handbook (3rd ed.)*. K&L Gates. "
+                "Retrieved from https://files.klgates.com/files/206323_etf_handbook_third_edition.pdf"
+            ])
+            intro = "Question is related to ETFs. Answers are generated upon the contents retrieved from ETF books and Google Search.\n\n"
         else:
-            google_results, google_sources = self.google_search_bot.search(query=question)
-            retrieved_info = f"**Google Search Results:**\n{google_results}"
-            print(google_results)
-            sources.extend(google_sources)
+            # Use only Google search results for non-ETF-related questions
+            combined_info = f"Google Search Results:\n{google_results}"
+            intro = "Question is not related to ETFs. Answers are generated upon the contents from Google Search.\n\n"
 
-        # Prepare the final message to be sent to OpenAI
         sources_text = "\n".join([f"- {source}" for source in sources])
-        processed_query_prompt = f"""
-            The user is asking a question: {question}
 
-            The retrieved information is: {retrieved_info}
-
-            Sources:
-            {sources_text}
-
-            Please answer the question based on the retrieved information.
-        """
-
-        # Send the query to OpenAI for processing
-        messages = [{"role": "system", "content": self.system_prompt}] + messages + [{"role": "user", "content": processed_query_prompt}]
+        # Prepare the messages for GPT
+        messages = [{"role": "system", "content": self.system_prompt}] + messages + [{"role": "user", "content": combined_info}]
         response = chat_completion_request(self.llm_client, messages=messages, stream=True)
 
-        return retrieved_info, response
+        # Collect the full response in one pass
+        final_response = intro  # Start with the introductory message
+
+        for chunk in response:
+            content = chunk.choices[0].delta.content
+            if content:
+                final_response += content  # Append GPT content
+
+        final_response += f"\n\nSources:\n{sources_text}"  # Append sources
+
+        # Print the complete response once
+        # print(final_response, flush=True)
+
+        return combined_info, final_response
+
+# Main block for testing
+if __name__ == "__main__":
+    openai_api_key = input("Please enter your OpenAI API Key: ")
+    google_api_key = input("Please enter your Google API Key: ")
+    google_cse_id = input("Please enter your Google CSE ID: ")
+
+    copilot = Copilot(openai_key=openai_api_key, google_api_key=google_api_key, google_cse_id=google_cse_id)
+    messages = []
+
+    while True:
+        question = input("Please ask a question: ")
+        if question.lower() == "exit":
+            print("Exiting the Copilot...")
+            break
+
+        retrieved_info, answer = copilot.ask(question, messages)
+        print(answer)
+
+        messages.append({"role": "user", "content": question})
+        messages.append({"role": "assistant", "content": answer})
