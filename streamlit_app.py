@@ -468,7 +468,7 @@ st.markdown(
         color: #6c757d;
     }
     img {
-        height: 400px;  /* Fixed height for uniformity */
+        height: 500px;  /* Fixed height for uniformity */
         width: auto;  /* Maintain aspect ratio */
         object-fit: cover;  /* Cover the area while preserving aspect ratio */
         border-radius: 10px;  /* Add rounded corners */
